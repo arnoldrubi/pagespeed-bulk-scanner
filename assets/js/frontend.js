@@ -48,7 +48,7 @@
                     return;
                 }
 
-                var chunkSize = 5;
+                var chunkSize = 1;
                 var total = urls.length;
                 var processed = 0;
 
@@ -78,10 +78,15 @@
                                 var url = item.url || '';
                                 var res = item.result || {};
 
-                                // Skip PageSpeed API errors
-                                if (res.errors && res.errors.pagespeed_error) {
-                                    console.warn('Skipping error for', url, res.errors.pagespeed_error);
-                                    return; // <-- do nothing for this row
+                                // If structured error returned from server
+                                if (res && res.error) {
+                                    console.warn('Skipping URL due to API error:', url, res.error_message || res);
+                                    skipped++;
+                                    // then update UI about skipped
+                                    if (skipped > 0) {
+                                        $progressText.append(' — Skipped: ' + skipped);
+                                    }
+                                    return; // skip row append and csv push
                                 }
 
                                 var $row = $('<tr></tr>');
@@ -104,7 +109,7 @@
                                     $row.append('<td>'+(res.TBT ?? '-')+'</td>');
                                     $row.append('<td>'+(res.SI ?? '-')+'</td>');
                                     $row.append('<td>'+(res.TTI ?? '-')+'</td>');
-                                    $row.append('<td><button title="View Detailed Results" class="ps-btn ps-row-copy" data-url="https://developers.google.com/speed/pagespeed/insights/?url='+url+'"><i class="material-icons">info</i> Details</button></td>');
+                                    $row.append('<td style="text-align: center"><button title="View Detailed Results" class="ps-btn ps-row-copy" data-url="https://developers.google.com/speed/pagespeed/insights/?url='+url+'"><i class="material-icons">info</i> Details</button></td>');
                                 }
 
                                 $row.hide().appendTo($resultsTbody).fadeIn(500);
@@ -116,7 +121,7 @@
                         var pct = Math.round((processed / total) * 100);
                         $progressFill.css('width', pct + '%');
 
-                        setTimeout(processNextBatch, 300);
+                        setTimeout(processNextBatch, 800);
                     }, 'json').fail(function(){
                         processed += batch.length;
                         setTimeout(processNextBatch, 400);

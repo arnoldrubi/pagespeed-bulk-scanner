@@ -7,6 +7,9 @@ class PageSpeed_Admin {
     public function __construct() {
         add_action( 'admin_menu', [ $this, 'register_menu' ] );
         add_action( 'admin_init', [ $this, 'register_settings' ] );
+        
+        // ✅ Add AJAX hook
+        add_action( 'wp_ajax_ps_validate_api_key', [ $this, 'ajax_validate_api_key' ] );
     }
 
     public function register_menu() {
@@ -17,6 +20,22 @@ class PageSpeed_Admin {
             'ps-scanner',
             [ $this, 'settings_page' ]
         );
+        // Hook to enqueue admin scripts
+        add_action( 'admin_enqueue_scripts', function( $hook ) {
+            if ( $hook === 'settings_page_ps-scanner' ) {
+                wp_enqueue_script(
+                    'ps-admin',
+                    PS_SCANNER_URL . 'assets/js/admin.js',
+                    [ 'jquery' ],
+                    '1.0',
+                    true
+                );
+                wp_localize_script( 'ps-admin', 'PSAdmin', [
+                    'ajax_url' => admin_url( 'admin-ajax.php' ),
+                    'nonce'    => wp_create_nonce( 'ps_admin_nonce' ),
+                ] );
+            }
+        });
     }
 
     public function register_settings() {
@@ -31,7 +50,7 @@ class PageSpeed_Admin {
 
         add_settings_field(
             'api_key',
-            'Google PageSpeed API Key',
+            'Google PageSpeed API Key<br><small>You can get an API key from <a href="https://console.developers.google.com/apis/credentials" target="_blank">Google Cloud Console</a>.</small>',
             [ $this, 'field_api_key' ],
             'ps-scanner',
             'ps_scanner_main'
@@ -134,5 +153,38 @@ class PageSpeed_Admin {
             <p>Use <code>[pagespeed_scanner]</code> in any page or post to render the scanner form.</p>
         </div>
         <?php
+    }
+    public function ajax_validate_api_key() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( [ 'message' => 'Unauthorized' ], 403 );
+        }
+
+        $api_key = isset( $_POST['api_key'] ) ? sanitize_text_field( $_POST['api_key'] ) : '';
+        if ( empty( $api_key ) ) {
+            wp_send_json_error( [ 'message' => 'API key is empty' ] );
+        }
+
+        $test_url = add_query_arg( [
+            'url'      => 'https://example.com',
+            'strategy' => 'mobile',
+            'category' => 'performance',
+            'key'      => $api_key,
+        ], 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed' );
+
+        $resp = wp_remote_get( $test_url, [ 'timeout' => 15 ] );
+
+        if ( is_wp_error( $resp ) ) {
+            wp_send_json_error( [ 'message' => $resp->get_error_message() ] );
+        }
+
+        $code = wp_remote_retrieve_response_code( $resp );
+        $body = json_decode( wp_remote_retrieve_body( $resp ), true );
+
+        if ( $code !== 200 || isset( $body['error'] ) ) {
+            $msg = $body['error']['message'] ?? 'Invalid API key';
+            wp_send_json_error( [ 'message' => $msg ] );
+        }
+
+        wp_send_json_success( [ 'message' => 'API key is valid ✅' ] );
     }
 }

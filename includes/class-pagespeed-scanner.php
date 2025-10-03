@@ -192,19 +192,28 @@ class PageSpeed_Scanner {
         // now call the API
         $resp = wp_remote_get( $req_url, [ 'timeout' => 90 ] );
         if ( is_wp_error( $resp ) ) {
-            return $resp;
+            error_log( '[PSI Scanner] wp_remote_get error for ' . $url . ': ' . $resp->get_error_message() );
+            return new WP_Error( 'wp_remote_error', $resp->get_error_message() );
         }
         $code = wp_remote_retrieve_response_code( $resp );
         $body = wp_remote_retrieve_body( $resp );
 
         if ( $code !== 200 || empty( $body ) ) {
-            return new WP_Error( 'pagespeed_error', 'PageSpeed API returned non-200 response.' );
+            // Log the body (may contain helpful JSON error)
+            error_log( '[PSI Scanner] Non-200 response for ' . $url . ' code=' . $code . ' body=' . substr( $body, 0, 2000 ) );
+            return new WP_Error( 'pagespeed_error', 'PageSpeed API returned non-200 response. code=' . $code );
         }
 
         $json = json_decode( $body, true );
 
         if ( ! is_array( $json ) ) {
+            error_log( '[PSI Scanner] JSON parse error for ' . $url . ' raw=' . substr( $body, 0, 2000 ) );
             return new WP_Error( 'pagespeed_parse', 'Unable to parse PageSpeed API response.' );
+        }
+
+        // Log categories returned to see missing categories
+        if ( isset( $json['lighthouseResult']['categories'] ) ) {
+            error_log( '[PSI Scanner] Categories returned for ' . $url . ': ' . implode( ',', array_keys( $json['lighthouseResult']['categories'] ) ) );
         }
 
         // ✅ Basic metric extraction

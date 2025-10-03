@@ -65,7 +65,7 @@ class PageSpeed_Frontend {
                     </select>
                 </div>
                 <div class="ps-input-group">
-                    <small>Enter the domain of the website you want to scan (e.g., https://example.com).</small>
+                    <small>Enter the domain of the website you want to scan (e.g., https://example.com). The scanner automatically skips non-displaying pages.</small>
                 </div>
                 <div class="ps-input-group">
                     <button id="scan-button" type="submit" class="ps-btn"><i class="material-icons">speed</i> Run Scan</button>

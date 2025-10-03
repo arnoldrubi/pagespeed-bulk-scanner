@@ -40,7 +40,14 @@ function ps_run_scan_ajax() {
                 'url'      => $url,
                 'strategy' => $strategy,
                 'error'    => $res->get_error_message(),
+                'result' => [
+                'error' => true,
+                'error_code' => $res->get_error_code(),
+                'error_message' => $res->get_error_message()
+            ]
             ];
+            // important: continue to next URL (do not abort)
+            continue;
         } else {
             $results[] = [
                 'url'      => $url,
